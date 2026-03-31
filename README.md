@@ -32,6 +32,16 @@
 Browser extension (**Chromium MV3** + **Firefox** / Zen) that **hides** feed cards on `linkedin.com` when post text matches a keyword list (built-in + custom).  
 State → `storage.local`. Popup → `tabs.sendMessage` to LinkedIn tabs so **Gecko** stays aligned with **Chromium**.
 
+<div align="center">
+
+<br/>
+
+<img src="assets/screenshot.png" width="680" alt="LinkedIn Feed Cleaner — screenshot (popup or feed)" />
+
+<br/>
+
+</div>
+
 ---
 
 ## ▸ built-in keyword list
@@ -134,6 +144,7 @@ content.js / content.css
 popup.html / popup.css / popup.js
 background.js
 icon.png
+assets/screenshot.png ← main readme screenshot
 assets/*.gif          ← readme eye candy + swap in your own demos
 LICENSE · CONTRIBUTING.md
 ```
