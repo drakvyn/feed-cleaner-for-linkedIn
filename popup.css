@@ -209,25 +209,25 @@ footer.credit {
   padding: 10px 16px 14px;
   text-align: center;
   font-size: 10px;
-  color: #5c6b7a;
+  color: #a8b4c0;
   letter-spacing: 0.02em;
   background: #080a0d;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 footer.credit a {
-  color: #6eb3f7;
+  color: #8ec8ff;
   text-decoration: none;
   font-weight: 500;
 }
 
 footer.credit a:hover {
-  color: #9ccaff;
+  color: #b8ddff;
   text-decoration: underline;
 }
 
 footer.credit .credit-sep {
   margin: 0 0.35em;
-  color: #4a5662;
+  color: #7a8794;
   user-select: none;
 }
