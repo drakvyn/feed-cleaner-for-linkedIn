@@ -96,6 +96,15 @@ npm run lint:firefox
 
 ---
 
+## ▸ versions & releases
+
+- **SemVer** — `package.json`, `manifest.json`, and `manifest-firefox-v2.json` share the same `version` (e.g. `1.0.1`). Check with `npm run verify:version`.
+- **[CHANGELOG.md](CHANGELOG.md)** — human-readable history.
+- **[RELEASING.md](RELEASING.md)** — bump, tag (`v1.0.1`), GitHub Release, stores.
+- Pushing a tag **`v*.*.*`** runs **GitHub Actions**: lint, build, attach `web-ext-artifacts/*.zip` to the release.
+
+---
+
 ## ▸ collab
 
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — PR + issue rules  
@@ -113,7 +122,7 @@ npm run lint:firefox
 
 <br/>
 
-**[jeanroa.dev](https://jeanroa.dev)** · **[support the projects](https://buymeacoffee.com/jeanroa)** · **[github](https://github.com/drakvyn/feed-fleaner-for-linkedIn)**
+**[jeanroa.dev](https://jeanroa.dev)** · **[support the project](https://buymeacoffee.com/jeanroa)** · **[github](https://github.com/drakvyn/feed-fleaner-for-linkedIn)**
 
 <br/>
 

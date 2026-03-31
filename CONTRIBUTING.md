@@ -60,3 +60,5 @@ For quick questions, open a **Discussion** on GitHub (if enabled) or an issue la
 ---
 
 Maintainers may edit these guidelines as the project evolves.
+
+For cutting releases (tags, changelog, CI artifacts), see **[RELEASING.md](RELEASING.md)**.

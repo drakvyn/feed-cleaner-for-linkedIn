@@ -1,7 +1,10 @@
 {
   "name": "linkedin-hide-ai-extension",
+  "version": "1.0.0",
   "private": true,
+  "description": "Browser extension: hide AI/LLM-related posts in the LinkedIn feed (MV3 + Firefox).",
   "scripts": {
+    "verify:version": "node scripts/verify-version.cjs",
     "lint:firefox": "web-ext lint --source-dir .",
     "build:firefox": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest",
     "pack:temp": "web-ext build --source-dir . --artifacts-dir . --filename linkedin-hide-ai-dev.xpi --overwrite-dest --ignore-files \"node_modules/**\" \"web-ext-artifacts/**\" \"package-lock.json\""
