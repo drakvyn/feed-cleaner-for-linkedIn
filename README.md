@@ -36,7 +36,15 @@ State → `storage.local`. Popup → `tabs.sendMessage` to LinkedIn tabs so **Ge
 
 <br/>
 
-<img src="assets/screenshot.png" width="680" alt="LinkedIn Feed Cleaner — screenshot (popup or feed)" />
+<img src="assets/app.png" width="340" alt="LinkedIn Feed Cleaner — extension popup" />
+
+<sub>popup</sub>
+
+<br/>
+
+<img src="assets/screenshot.png" width="680" alt="LinkedIn Feed Cleaner — feed screenshot" />
+
+<sub>feed</sub>
 
 <br/>
 
@@ -144,7 +152,8 @@ content.js / content.css
 popup.html / popup.css / popup.js
 background.js
 icon.png
-assets/screenshot.png ← main readme screenshot
+assets/app.png        ← popup screenshot (readme)
+assets/screenshot.png ← feed screenshot (readme)
 assets/*.gif          ← readme eye candy + swap in your own demos
 LICENSE · CONTRIBUTING.md
 ```
