@@ -45,7 +45,7 @@ Browser extension (**Chromium MV3** + **Firefox** / Zen) — **Feed cleaner for 
 
 <br/>
 
-<img src="assets/screenshot.png" width="680" alt="Feed cleaner for LinkedIn — feed with blur shields" />
+<img src="assets/screenshot.gif" width="680" alt="Feed cleaner for LinkedIn — feed with blur shields" />
 
 <sub>feed</sub>
 
