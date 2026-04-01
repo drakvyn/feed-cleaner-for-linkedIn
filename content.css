@@ -1,3 +1,71 @@
-.ln-hide-ai--hidden {
-  display: none !important;
+.ln-hide-ai--anchor {
+  position: relative !important;
+  /* Keeps shield stacking local so backdrop-filter does not composite over site modals/chats. */
+  isolation: isolate;
+}
+
+.ln-hide-ai__shield {
+  display: none;
+  position: absolute;
+  inset: 0;
+  /* Above typical in-card layers; LinkedIn overlays/modals use much higher values (1e3–1e4+). */
+  z-index: 100;
+  box-sizing: border-box;
+  min-height: 72px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px 16px;
+  margin: 0;
+  border: none;
+  border-radius: inherit;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(8, 12, 18, 0.5);
+  pointer-events: auto;
+}
+
+.ln-hide-ai--shielded .ln-hide-ai__shield {
+  display: flex !important;
+}
+
+.ln-hide-ai__msg {
+  margin: 0;
+  max-width: 300px;
+  text-align: center;
+  font:
+    600 14px/1.4 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  color: #eef1f4;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
+}
+
+.ln-hide-ai__btn {
+  cursor: pointer;
+  padding: 9px 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(10, 102, 194, 0.92);
+  color: #fff;
+  font:
+    600 13px system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.ln-hide-ai__btn:hover {
+  background: #0a66c2;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.ln-hide-ai__btn:focus-visible {
+  outline: 2px solid #70b5f9;
+  outline-offset: 2px;
 }

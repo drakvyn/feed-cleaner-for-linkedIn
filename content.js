@@ -4,13 +4,6 @@
       ? globalThis.browser
       : globalThis.chrome;
 
-  if (!document.querySelector("style[data-ln-hide-ai]")) {
-    const s = document.createElement("style");
-    s.setAttribute("data-ln-hide-ai", "1");
-    s.textContent = ".ln-hide-ai--hidden{display:none !important;}";
-    (document.head || document.documentElement).appendChild(s);
-  }
-
   const PHRASES = [
     "ai",
     "ia",
@@ -67,8 +60,6 @@
     "mistral ai",
     "cohere",
     "perplexity ai",
-    "whatsapp",
-    "whatsapp business",
   ];
 
   const SHORT_PATTERNS = [
@@ -83,6 +74,7 @@
 
   let enabled = true;
   let customPhrases = [];
+  let authorWhitelistPhrases = [];
   let lastStorageSig = null;
 
   /**
@@ -157,6 +149,72 @@
       .filter(Boolean);
   }
 
+  function slugNormVariants(rawSlug) {
+    const out = new Set();
+    try {
+      const dec = decodeURIComponent(String(rawSlug).replace(/\+/g, " "));
+      out.add(normalizeText(dec));
+      out.add(normalizeText(dec.replace(/-/g, " ")));
+    } catch (_) {}
+    return out;
+  }
+
+  function collectAuthorIdentityNorms(root) {
+    const norms = new Set();
+    if (!root?.querySelector) return norms;
+    try {
+      root.querySelectorAll('a[href*="/in/"]').forEach((a) => {
+        const href = a.getAttribute("href") || a.href || "";
+        const m = href.match(/\/in\/([^/?#]+)/i);
+        if (!m) return;
+        const seg = m[1];
+        if (!seg || /^(ACoA|ACw)/i.test(seg)) return;
+        slugNormVariants(seg).forEach((n) => {
+          if (n) norms.add(n);
+        });
+      });
+      const nameSels = [
+        ".update-components-actor__name",
+        '[class*="update-components-actor__name"]',
+        ".update-components-actor__title",
+      ];
+      for (const sel of nameSels) {
+        root.querySelectorAll(sel).forEach((el) => {
+          const t = normalizeText(el.innerText || "");
+          if (t.length > 1 && t.length < 160) norms.add(t);
+        });
+      }
+    } catch (_) {}
+    return norms;
+  }
+
+  function authorMatchesWhitelist(root) {
+    if (!authorWhitelistPhrases.length) return false;
+    const ids = collectAuthorIdentityNorms(root);
+    if (!ids.size) return false;
+    const idArr = [...ids];
+    for (const w of authorWhitelistPhrases) {
+      if (!w || w.length < 2) continue;
+      for (const n of idArr) {
+        if (n === w) return true;
+        if (w.length >= 3 && (n.includes(w) || w.includes(n))) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Remove legacy highlight marks from older extension versions. */
+  function stripLegacyHighlightMarks() {
+    try {
+      document.querySelectorAll("mark.ln-hide-ai__hl").forEach((mark) => {
+        const p = mark.parentNode;
+        if (!p) return;
+        while (mark.firstChild) p.insertBefore(mark.firstChild, mark);
+        p.removeChild(mark);
+      });
+    } catch (_) {}
+  }
+
   function getFeedScope() {
     // LinkedIn’s feed column is often outside <main> (shell/nav vs content). Scanning only
     // main yields zero cards and hides nothing on /feed/.
@@ -164,23 +222,36 @@
   }
 
   /**
-   * Open shadow roots only. Substring match `*[class*="feed-shared-update-v2"]` hits
-   * `feed-shared-update-v2__actor` etc.; closest() then stops on inner wrappers → wrong root, thin innerText.
+   * One BFS over document + open shadow roots; runs every selector once per light subtree root
+   * (cheaper than calling querySelectorAllDeep per selector).
    */
-  function querySelectorAllDeep(root, selector) {
-    const out = [];
-    function search(node) {
-      if (!node?.querySelectorAll) return;
-      try {
-        node.querySelectorAll(selector).forEach((el) => out.push(el));
-      } catch (_) {}
+  function querySelectorsAllDeep(root, selectors) {
+    const outs = selectors.map(() => []);
+    if (!selectors.length) return outs;
+    const base = root === document ? document.documentElement : root;
+    const queue = [];
+    if (base?.querySelectorAll) queue.push(base);
+    if (base?.shadowRoot) queue.push(base.shadowRoot);
+    while (queue.length) {
+      const node = queue.shift();
+      if (!node?.querySelectorAll) continue;
+      for (let s = 0; s < selectors.length; s++) {
+        try {
+          node.querySelectorAll(selectors[s]).forEach((el) => outs[s].push(el));
+        } catch (_) {}
+      }
       node.querySelectorAll("*").forEach((el) => {
-        if (el.shadowRoot) search(el.shadowRoot);
+        if (el.shadowRoot) queue.push(el.shadowRoot);
       });
     }
-    search(root === document ? document.documentElement : root);
-    return out;
+    return outs;
   }
+
+  function querySelectorAllDeep(root, selector) {
+    return querySelectorsAllDeep(root, [selector])[0];
+  }
+
+  let digestScanCounter = 0;
 
   /** New LinkedIn UI: hashed CSS; real posts are role=listitem + componentkey *MAIN_FEED*. */
   function isMainFeedListItem(el) {
@@ -193,6 +264,19 @@
       /feedtype_.*main_feed/i.test(ck) ||
       (ckl.includes("feedtype") && ckl.includes("sponsored"))
     );
+  }
+
+  /** True when at least one main-feed listitem exists in the light DOM (skip expensive deep BFS). */
+  function hasLightMainFeedListItems() {
+    try {
+      const nodes = document.querySelectorAll('div[role="listitem"]');
+      for (let i = 0; i < nodes.length; i++) {
+        if (isMainFeedListItem(nodes[i])) return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   function closestMainFeedPostRoot(el) {
@@ -258,6 +342,153 @@
     return arr.filter((r) => !arr.some((o) => o !== r && o.contains(r)));
   }
 
+  /**
+   * LinkedIn messaging UI — must never get feed shields.
+   * Do not use one giant `closest(selectors)` list: one invalid selector makes the whole call throw
+   * and the catch used to treat everything as “not messaging”.
+   * Also walk through shadow roots: `closest` from inside shadow does not reach the light-DOM bubble.
+   */
+  function messagingShellMarksElement(el) {
+    if (!(el instanceof Element)) return false;
+    try {
+      if (el.hasAttribute("data-msg-overlay-conversation-bubble-open")) return true;
+      const vn = el.getAttribute("data-view-name") || "";
+      if (vn === "message-overlay-conversation-bubble-item") return true;
+      if (vn.includes("message-overlay") || vn.includes("msg-overlay")) return true;
+      if (vn === "message-list-item") return true;
+      const role = el.getAttribute("role") || "";
+      const ar = el.getAttribute("aria-label") || "";
+      if (role === "dialog" && /\b(mensajes|messages|messaging|mensaje)\b/i.test(ar)) return true;
+      const cls = el.getAttribute("class") || "";
+      if (cls.includes("msg-convo-wrapper")) return true;
+      if (cls.includes("msg-overlay-conversation-bubble")) return true;
+      if (cls.includes("msg-overlay-list-bubble")) return true;
+      if (cls.includes("msg-overlay-bubble")) return true;
+      if (cls.includes("msg-s-message-list-container")) return true;
+      if (cls.includes("msg-s-message-list")) return true;
+      if (cls.includes("msg-thread-container")) return true;
+      if (cls.includes("msg-thread")) return true;
+      if (cls.includes("msg-form")) return true;
+      if (cls.includes("msg-s-event-listitem")) return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isInsideLinkedInMessagingShell(node) {
+    let cur = node;
+    if (cur?.nodeType === Node.TEXT_NODE || cur?.nodeType === Node.COMMENT_NODE) {
+      cur = cur.parentElement;
+    }
+    if (!cur) return false;
+    for (let depth = 0; depth < 200 && cur; depth++) {
+      if (cur.nodeType === Node.ELEMENT_NODE && messagingShellMarksElement(cur)) return true;
+      if (cur.parentNode) {
+        cur = cur.parentNode;
+        continue;
+      }
+      const rn = cur.getRootNode?.();
+      if (rn instanceof ShadowRoot && rn.host) {
+        cur = rn.host;
+        continue;
+      }
+      break;
+    }
+    return false;
+  }
+
+  /** Post / share composer, modals — same stacking concern as messaging; never shield these trees. */
+  function composerShellMarksElement(el) {
+    if (!(el instanceof Element)) return false;
+    try {
+      const vn = (el.getAttribute("data-view-name") || "").toLowerCase();
+      if (vn.includes("share-box") || vn.includes("sharebox")) return true;
+      if (vn.includes("feed-share") || vn.includes("start-a-post") || vn.includes("create-post"))
+        return true;
+      if (vn.includes("composer") && (vn.includes("post") || vn.includes("share") || vn.includes("feed")))
+        return true;
+      const cls = el.getAttribute("class") || "";
+      if (cls.includes("share-box-feed-entry") || cls.includes("share-box-feed")) return true;
+      if (cls.includes("share-creation-state") || cls.includes("share-unified")) return true;
+      const tid = (el.getAttribute("data-testid") || "").toLowerCase();
+      if (tid.includes("share-box") || tid.includes("share-box-")) return true;
+      const role = el.getAttribute("role") || "";
+      const ar = el.getAttribute("aria-label") || "";
+      if (
+        role === "dialog" &&
+        /\b(post|publication|publicar|share|compartir|composer|crear|write|escribir)\b/i.test(ar)
+      )
+        return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function isInsideLinkedInComposerShell(node) {
+    let cur = node;
+    if (cur?.nodeType === Node.TEXT_NODE || cur?.nodeType === Node.COMMENT_NODE) {
+      cur = cur.parentElement;
+    }
+    if (!cur) return false;
+    for (let depth = 0; depth < 200 && cur; depth++) {
+      if (cur.nodeType === Node.ELEMENT_NODE && composerShellMarksElement(cur)) return true;
+      if (cur.parentNode) {
+        cur = cur.parentNode;
+        continue;
+      }
+      const rn = cur.getRootNode?.();
+      if (rn instanceof ShadowRoot && rn.host) {
+        cur = rn.host;
+        continue;
+      }
+      break;
+    }
+    return false;
+  }
+
+  function isFeedShieldExcludedShell(node) {
+    return isInsideLinkedInMessagingShell(node) || isInsideLinkedInComposerShell(node);
+  }
+
+  /** Big layout node that wraps an open conversation bubble (feed column must not be shielded as one block). */
+  function subtreeContainsOpenMessageOverlay(root) {
+    if (!root?.querySelector) return false;
+    try {
+      if (messagingShellMarksElement(root)) return true;
+      return Boolean(root.querySelector("[data-msg-overlay-conversation-bubble-open]"));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function subtreeContainsComposerOverlay(root) {
+    if (!root?.querySelector) return false;
+    try {
+      if (composerShellMarksElement(root)) return true;
+      return Boolean(
+        root.querySelector(
+          "[data-view-name*='share-box'], [data-view-name*='shareBox'], [class*='share-box-feed'], [class*='share-creation-state']"
+        )
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function subtreeContainsFeedShieldExcludedOverlay(root) {
+    return subtreeContainsOpenMessageOverlay(root) || subtreeContainsComposerOverlay(root);
+  }
+
+  function isLinkedInMessagingPath() {
+    try {
+      return /^\/messaging(\/|$)/.test(location.pathname || "");
+    } catch (_) {
+      return false;
+    }
+  }
+
   const FEED_SCROLL_SELECTORS = [
     ".scaffold-finite-scroll__content",
     "[class*='scaffold-finite-scroll__content']",
@@ -278,12 +509,15 @@
 
   /** LinkedIn virtual feed: one slot per direct child of the scroll column. */
   function addFeedColumnChunkRoots(set) {
+    if (isLinkedInMessagingPath()) return;
     const seen = new Set();
     const considerContainer = (container) => {
       if (!container || seen.has(container)) return;
+      if (isFeedShieldExcludedShell(container)) return;
       seen.add(container);
       Array.from(container.children).forEach((child) => {
         if (!(child instanceof HTMLElement)) return;
+        if (isFeedShieldExcludedShell(child)) return;
         const tag = child.tagName;
         if (tag !== "DIV" && tag !== "LI" && tag !== "SECTION" && tag !== "ARTICLE") return;
         const len = (child.innerText || "").replace(/\s+/g, " ").trim().length;
@@ -297,74 +531,92 @@
         document.querySelectorAll(sel).forEach((c) => considerContainer(c));
       } catch (_) {}
     });
-    try {
-      querySelectorAllDeep(document.documentElement, ".scaffold-finite-scroll__content").forEach((c) =>
-        considerContainer(c)
-      );
-    } catch (_) {}
+    if (!hasLightMainFeedListItems()) {
+      try {
+        querySelectorAllDeep(document.documentElement, ".scaffold-finite-scroll__content").forEach((c) =>
+          considerContainer(c)
+        );
+      } catch (_) {}
+    }
   }
 
   function addGraphQlFeedPostRoots(set) {
     const visit = (el) => {
+      if (isFeedShieldExcludedShell(el)) return;
       if (isMainFeedListItem(el)) set.add(el);
     };
     try {
       document.querySelectorAll('div[role="listitem"]').forEach(visit);
     } catch (_) {}
-    try {
-      querySelectorAllDeep(document.documentElement, 'div[role="listitem"]').forEach(visit);
-    } catch (_) {}
+
     const boxSel = '[data-testid="expandable-text-box"]';
     const fromBox = (box) => {
+      if (isFeedShieldExcludedShell(box)) return;
       const li = closestMainFeedPostRoot(box);
-      if (li) set.add(li);
+      if (li && !isFeedShieldExcludedShell(li)) set.add(li);
       else {
         const shell = closestFeedCardShell(box);
-        if (shell) set.add(shell);
+        if (shell && !isFeedShieldExcludedShell(shell)) set.add(shell);
       }
     };
     try {
       document.querySelectorAll(boxSel).forEach(fromBox);
     } catch (_) {}
-    try {
-      querySelectorAllDeep(document.documentElement, boxSel).forEach(fromBox);
-    } catch (_) {}
 
     const fromTestId = (el) => {
+      if (isFeedShieldExcludedShell(el)) return;
       const li = el.closest?.('div[role="listitem"]');
-      if (li && isMainFeedListItem(li)) set.add(li);
+      if (li && isMainFeedListItem(li) && !isFeedShieldExcludedShell(li)) set.add(li);
       else {
         const shell = closestFeedCardShell(el);
-        if (shell) set.add(shell);
+        if (shell && !isFeedShieldExcludedShell(shell)) set.add(shell);
       }
     };
     try {
       document.querySelectorAll('[data-testid*="FeedType_MAIN_FEED"]').forEach(fromTestId);
     } catch (_) {}
-    try {
-      querySelectorAllDeep(document.documentElement, '[data-testid*="FeedType_MAIN_FEED"]').forEach(
-        fromTestId
-      );
-    } catch (_) {}
 
-    try {
-      document.querySelectorAll("p").forEach((p) => {
-        const it = (p.innerText || "").trim();
-        if (it.length > 260) return;
-        const il = it.toLowerCase();
-        if (!DIGEST_LINE_MARKERS.some((m) => il.includes(m))) return;
-        const li = closestMainFeedPostRoot(p);
-        if (li) set.add(li);
-        else {
-          const shell = closestFeedCardShell(p);
-          if (shell) set.add(shell);
-        }
-      });
-    } catch (_) {}
+    if (!hasLightMainFeedListItems()) {
+      const deepSels = [
+        'div[role="listitem"]',
+        '[data-testid="expandable-text-box"]',
+        '[data-testid*="FeedType_MAIN_FEED"]',
+      ];
+      try {
+        const [deepLi, deepBox, deepTid] = querySelectorsAllDeep(document.documentElement, deepSels);
+        deepLi.forEach(visit);
+        deepBox.forEach(fromBox);
+        deepTid.forEach(fromTestId);
+      } catch (_) {}
+    }
+
+    digestScanCounter += 1;
+    const runDigest =
+      !hasLightMainFeedListItems() || digestScanCounter % 4 === 0;
+    if (runDigest) {
+      try {
+        document.querySelectorAll("p").forEach((p) => {
+          if (isFeedShieldExcludedShell(p)) return;
+          const it = (p.innerText || "").trim();
+          if (it.length > 260) return;
+          const il = it.toLowerCase();
+          if (!DIGEST_LINE_MARKERS.some((m) => il.includes(m))) return;
+          const li = closestMainFeedPostRoot(p);
+          if (li && !isFeedShieldExcludedShell(li)) set.add(li);
+          else {
+            const shell = closestFeedCardShell(p);
+            if (shell && !isFeedShieldExcludedShell(shell)) set.add(shell);
+          }
+        });
+      } catch (_) {}
+    }
   }
 
   function getPostRoots() {
     const set = new Set();
+    if (isLinkedInMessagingPath()) {
+      return new Set();
+    }
     const scope = getFeedScope();
     const rootEl = scope === document ? document.documentElement : scope;
 
@@ -376,10 +628,14 @@
     if (cards.length === 0) {
       cards = querySelectorAllDeep(rootEl, cardSelector);
     }
-    cards.forEach((el) => set.add(el));
+    cards.forEach((el) => {
+      if (!isFeedShieldExcludedShell(el)) set.add(el);
+    });
     if (set.size === 0) {
       scope.querySelectorAll('div[class*="feed-shared-update-v2"]').forEach((el) => {
-        if (/\bfeed-shared-update-v2\b/.test(el.className || "")) set.add(el);
+        if (/\bfeed-shared-update-v2\b/.test(el.className || "")) {
+          if (!isFeedShieldExcludedShell(el)) set.add(el);
+        }
       });
     }
 
@@ -390,16 +646,26 @@
       '[data-id*="urn:li:activity"]',
       '[data-id*="sponsored"]',
     ];
+    const addFromUrn = (el) => {
+      if (isFeedShieldExcludedShell(el)) return;
+      const r = bestRootFor(el);
+      if (r && !isFeedShieldExcludedShell(r)) set.add(r);
+    };
     for (const sel of urnSelectors) {
-      const addFrom = (el) => {
-        const root = bestRootFor(el);
-        if (root) set.add(root);
-      };
-      scope.querySelectorAll(sel).forEach(addFrom);
-      querySelectorAllDeep(rootEl, sel).forEach(addFrom);
+      try {
+        scope.querySelectorAll(sel).forEach(addFromUrn);
+      } catch (_) {}
+    }
+    if (!hasLightMainFeedListItems()) {
+      try {
+        querySelectorsAllDeep(rootEl, urnSelectors).forEach((arr) =>
+          arr.forEach(addFromUrn)
+        );
+      } catch (_) {}
     }
 
     scope.querySelectorAll('div[class*="occludable-update"]').forEach((el) => {
+      if (isFeedShieldExcludedShell(el)) return;
       const t = (el.innerText || "").length;
       if (t < 30) return;
       if (!isLikelySinglePostOccludable(el)) return;
@@ -407,23 +673,77 @@
     });
 
     scope.querySelectorAll('[data-view-name="feed-full-update"]').forEach((el) => {
+      if (isFeedShieldExcludedShell(el)) return;
       const wrap =
         el.closest('div[class*="occludable-update"]') ||
         el.closest("div.feed-shared-update-v2") ||
         el;
-      if (wrap) set.add(wrap);
+      if (wrap && !isFeedShieldExcludedShell(wrap)) set.add(wrap);
     });
 
     scope.querySelectorAll('div[class*="fie-impression-container"]').forEach((el) => {
+      if (isFeedShieldExcludedShell(el)) return;
       const wrap = bestRootFor(el);
-      if (wrap) set.add(wrap);
+      if (wrap && !isFeedShieldExcludedShell(wrap)) set.add(wrap);
     });
 
-    const merged = keepOutermostOnly([...set]);
+    const merged = keepOutermostOnly([...set]).filter(
+      (r) => !isFeedShieldExcludedShell(r) && !subtreeContainsFeedShieldExcludedOverlay(r)
+    );
     return new Set(merged);
   }
 
-  const MAX_MATCH_CHARS = 120000;
+  let cachedRoots = null;
+  let lastRootsScanAt = 0;
+  let lastRootsPath = "";
+  const ROOTS_CACHE_MS = 1000;
+
+  function invalidateRootsCache() {
+    cachedRoots = null;
+    lastRootsScanAt = 0;
+    lastRootsPath = "";
+  }
+
+  function getCachedRoots() {
+    const now = Date.now();
+    const path = (() => {
+      try {
+        return location.pathname || "";
+      } catch (_) {
+        return "";
+      }
+    })();
+    if (path !== lastRootsPath) {
+      lastRootsPath = path;
+      cachedRoots = null;
+    }
+    if (!cachedRoots || now - lastRootsScanAt > ROOTS_CACHE_MS) {
+      cachedRoots = getPostRoots();
+      lastRootsScanAt = now;
+    }
+    return cachedRoots;
+  }
+
+  let lastStatsSentAt = 0;
+  let lastStatsKey = "";
+  function reportScanStats(shielded, rootsTotal) {
+    const now = Date.now();
+    const key = `${shielded}\0${rootsTotal}`;
+    if (key === lastStatsKey && now - lastStatsSentAt < 2500) return;
+    lastStatsKey = key;
+    lastStatsSentAt = now;
+    try {
+      browserAPI.storage.local.set({
+        lnHideAiStats: {
+          hidden: shielded,
+          roots: rootsTotal,
+          at: now,
+        },
+      });
+    } catch (_) {}
+  }
+
+  const MAX_MATCH_CHARS = 50000;
 
   function getRootTextForMatch(root) {
     const a = root.innerText || "";
@@ -433,26 +753,209 @@
     return slice(a + "\n" + b);
   }
 
+  const CLS_SHIELDED = "ln-hide-ai--shielded";
+  const CLS_REVEALED = "ln-hide-ai--revealed";
+  const CLS_ANCHOR = "ln-hide-ai--anchor";
+  const DATA_REVEALED = "data-ln-hide-ai-revealed";
+
+  /** Survives LinkedIn re-renders and extra roots (parent/child) for the same card. */
+  const revealedFingerprints = new Set();
+
+  function getRevealFingerprint(root) {
+    if (!root?.querySelector) return null;
+    try {
+      const urnEl = root.querySelector(
+        '[data-urn*="urn:li:activity"], [data-id*="urn:li:activity"], [data-urn*="sponsored"], [data-id*="sponsored"]'
+      );
+      const urn = urnEl?.getAttribute("data-urn") || urnEl?.getAttribute("data-id");
+      if (urn && String(urn).length > 12) return `u:${String(urn).slice(0, 240)}`;
+
+      const tidEl = root.querySelector("[data-testid*='FeedType_MAIN_FEED']");
+      const tid = tidEl?.getAttribute("data-testid");
+      if (tid && tid.length > 12) return `t:${tid.slice(0, 240)}`;
+
+      const ck =
+        root.getAttribute("componentkey") ||
+        root.querySelector("[componentkey]")?.getAttribute("componentkey");
+      if (ck && ck.length > 15) return `c:${ck.slice(0, 240)}`;
+
+      const act = root.querySelector(
+        'a[href*="activity-"], a[href*="feed/update"], a[href*="/posts/"]'
+      );
+      const href = act?.href;
+      if (href && href.includes("linkedin.com")) return `h:${href.split("?")[0].slice(-200)}`;
+    } catch (_) {}
+    return null;
+  }
+
+  function isRevealedForRoot(root) {
+    if (root.getAttribute(DATA_REVEALED) === "1") return true;
+    const fp = getRevealFingerprint(root);
+    return Boolean(fp && revealedFingerprints.has(fp));
+  }
+
+  function revealPost(root) {
+    const fp = getRevealFingerprint(root);
+    if (fp) revealedFingerprints.add(fp);
+
+    let all;
+    try {
+      all = [...getPostRoots()];
+    } catch (_) {
+      all = [root];
+    }
+    const related = all.filter((r) => r === root || root.contains(r) || r.contains(root));
+    const targets = related.length ? related : [root];
+
+    for (const r of targets) {
+      r.setAttribute(DATA_REVEALED, "1");
+      r.classList.remove(CLS_SHIELDED);
+      r.classList.add(CLS_REVEALED);
+      removeShield(r, { keepRevealed: true });
+    }
+  }
+
+  function pickShieldAnchor(root) {
+    try {
+      if (root.nodeType !== 1) return root;
+      const st = globalThis.getComputedStyle(root);
+      if (st.display !== "contents") return root;
+      let el = root.firstElementChild;
+      while (el) {
+        const d = globalThis.getComputedStyle(el).display;
+        if (d !== "contents") return el;
+        el = el.firstElementChild;
+      }
+    } catch (_) {}
+    return root;
+  }
+
+  function removeShield(root, { keepRevealed = false } = {}) {
+    const sh = root.querySelector(".ln-hide-ai__shield");
+    if (sh?.parentElement) {
+      sh.parentElement.classList.remove(CLS_ANCHOR);
+      sh.remove();
+    }
+    root.classList.remove(CLS_SHIELDED, CLS_ANCHOR);
+    if (!keepRevealed) {
+      root.classList.remove(CLS_REVEALED);
+      root.removeAttribute(DATA_REVEALED);
+    }
+  }
+
+  function ensureShield(root) {
+    if (isFeedShieldExcludedShell(root) || subtreeContainsFeedShieldExcludedOverlay(root)) return;
+    let sh = root.querySelector(".ln-hide-ai__shield");
+    if (sh) return;
+    const anchor = pickShieldAnchor(root);
+    sh = document.createElement("div");
+    sh.className = "ln-hide-ai__shield";
+    sh.setAttribute("role", "presentation");
+    const msg = document.createElement("p");
+    msg.className = "ln-hide-ai__msg";
+    msg.textContent = "This post contains blocked content";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ln-hide-ai__btn";
+    btn.textContent = "See post";
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      revealPost(root);
+    });
+    sh.append(msg, btn);
+    anchor.appendChild(sh);
+    try {
+      const pos = globalThis.getComputedStyle(anchor).position;
+      if (pos === "static" || pos === "") anchor.classList.add(CLS_ANCHOR);
+    } catch (_) {
+      anchor.classList.add(CLS_ANCHOR);
+    }
+  }
+
+  function stripShieldsInsideMessagingUi() {
+    try {
+      document.querySelectorAll(".ln-hide-ai__shield").forEach((sh) => {
+        if (!isFeedShieldExcludedShell(sh)) return;
+        let cur = sh;
+        for (let i = 0; i < 90 && cur; i++) {
+          if (cur.nodeType === Node.ELEMENT_NODE) {
+            if (cur.classList?.contains(CLS_SHIELDED) || cur.classList?.contains(CLS_REVEALED)) {
+              removeShield(cur);
+              cur.classList.remove(CLS_SHIELDED, CLS_REVEALED, CLS_ANCHOR);
+              cur.removeAttribute(DATA_REVEALED);
+              break;
+            }
+          }
+          if (cur.parentNode) {
+            cur = cur.parentNode;
+            continue;
+          }
+          const rn = cur.getRootNode?.();
+          if (rn instanceof ShadowRoot && rn.host) {
+            cur = rn.host;
+            continue;
+          }
+          break;
+        }
+        sh.remove();
+      });
+    } catch (_) {}
+  }
+
   function applyVisibility() {
-    const roots = getPostRoots();
+    stripShieldsInsideMessagingUi();
+    stripLegacyHighlightMarks();
+    const roots = getCachedRoots();
+    let hiddenCount = 0;
     roots.forEach((root) => {
+      if (isFeedShieldExcludedShell(root) || subtreeContainsFeedShieldExcludedOverlay(root)) {
+        removeShield(root);
+        root.classList.remove(CLS_SHIELDED, CLS_REVEALED, CLS_ANCHOR);
+        root.removeAttribute(DATA_REVEALED);
+        return;
+      }
       if (!enabled) {
-        root.classList.remove("ln-hide-ai--hidden");
+        removeShield(root);
         return;
       }
       const text = getRootTextForMatch(root);
-      if (matchesPostText(text)) {
-        root.classList.add("ln-hide-ai--hidden");
+      const blocked = matchesPostText(text);
+      const whitelisted = blocked && authorMatchesWhitelist(root);
+      if (blocked && !whitelisted) {
+        if (isRevealedForRoot(root)) {
+          root.setAttribute(DATA_REVEALED, "1");
+          root.classList.remove(CLS_SHIELDED);
+          root.classList.add(CLS_REVEALED);
+          removeShield(root, { keepRevealed: true });
+          return;
+        }
+        hiddenCount++;
+        root.classList.add(CLS_SHIELDED);
+        root.classList.remove(CLS_REVEALED);
+        ensureShield(root);
       } else {
-        root.classList.remove("ln-hide-ai--hidden");
+        const fp = getRevealFingerprint(root);
+        if (fp) revealedFingerprints.delete(fp);
+        removeShield(root);
       }
     });
+    reportScanStats(enabled ? hiddenCount : 0, roots.size);
   }
 
   function showAllPosts() {
-    document.querySelectorAll(".ln-hide-ai--hidden").forEach((el) => {
-      el.classList.remove("ln-hide-ai--hidden");
+    invalidateRootsCache();
+    revealedFingerprints.clear();
+    document.querySelectorAll(".ln-hide-ai__shield").forEach((sh) => {
+      sh.parentElement?.classList.remove(CLS_ANCHOR);
+      sh.remove();
     });
+    document
+      .querySelectorAll(`.${CLS_SHIELDED}, .${CLS_REVEALED}, .${CLS_ANCHOR}, [${DATA_REVEALED}]`)
+      .forEach((el) => {
+        el.classList.remove(CLS_SHIELDED, CLS_REVEALED, CLS_ANCHOR);
+        el.removeAttribute(DATA_REVEALED);
+      });
   }
 
   let debounceId = null;
@@ -460,8 +963,8 @@
     if (debounceId) clearTimeout(debounceId);
     debounceId = setTimeout(() => {
       debounceId = null;
-      if (enabled) applyVisibility();
-    }, 50);
+      applyVisibility();
+    }, 220);
   }
 
   function storageLocalGet(keys) {
@@ -473,46 +976,51 @@
     });
   }
 
-  function applySettings(filterEnabledRaw, keywordsText) {
+  function applySettings(filterEnabledRaw, keywordsText, authorWhitelistText) {
+    invalidateRootsCache();
     enabled = filterEnabledRaw !== false;
     customPhrases = parseCustomKeywords(keywordsText || "");
+    authorWhitelistPhrases = parseCustomKeywords(authorWhitelistText || "");
     lastStorageSig = JSON.stringify([
       filterEnabledRaw,
       keywordsText || "",
+      authorWhitelistText || "",
     ]);
-    if (enabled) applyVisibility();
-    else showAllPosts();
+    if (!enabled) showAllPosts();
+    applyVisibility();
   }
 
   async function refreshFromStorage() {
     const items = await storageLocalGet({
       filterEnabled: true,
       customKeywords: "",
+      authorWhitelist: "",
     });
     const sig = JSON.stringify([
       items.filterEnabled,
       items.customKeywords || "",
+      items.authorWhitelist || "",
     ]);
     if (sig === lastStorageSig) return;
-    applySettings(items.filterEnabled, items.customKeywords);
+    applySettings(items.filterEnabled, items.customKeywords, items.authorWhitelist);
   }
 
   async function loadSettings() {
     try {
       await refreshFromStorage();
     } catch (_) {
-      if (enabled) applyVisibility();
+      applyVisibility();
     }
   }
 
   browserAPI.storage.onChanged.addListener((changes) => {
-    if (!changes.filterEnabled && !changes.customKeywords) return;
+    if (!changes.filterEnabled && !changes.customKeywords && !changes.authorWhitelist) return;
     refreshFromStorage().catch(() => {});
   });
 
   browserAPI.runtime.onMessage.addListener((msg) => {
     if (msg?.type === "ln-hide-ai-reload" && "filterEnabled" in msg) {
-      applySettings(msg.filterEnabled, msg.customKeywords);
+      applySettings(msg.filterEnabled, msg.customKeywords ?? "", msg.authorWhitelist ?? "");
     }
   });
 
@@ -520,7 +1028,10 @@
   let rescanIntervalId = null;
   function startDomWatch() {
     if (domObserver || document.hidden) return;
-    domObserver = new MutationObserver(() => scheduleScan());
+    domObserver = new MutationObserver(() => {
+      invalidateRootsCache();
+      scheduleScan();
+    });
     domObserver.observe(document.documentElement, {
       childList: true,
       subtree: true,
@@ -533,8 +1044,8 @@
   function startPeriodicRescan() {
     if (rescanIntervalId || document.hidden) return;
     rescanIntervalId = setInterval(() => {
-      if (!document.hidden && enabled) applyVisibility();
-    }, 900);
+      if (!document.hidden) applyVisibility();
+    }, 2800);
   }
   function stopPeriodicRescan() {
     if (rescanIntervalId) {
@@ -559,16 +1070,17 @@
   scheduleScan();
   startDomWatch();
   startPeriodicRescan();
-  [80, 400, 1200, 2800].forEach((ms) => {
+  [120, 700, 2000].forEach((ms) => {
     setTimeout(() => {
-      if (enabled) applyVisibility();
+      applyVisibility();
     }, ms);
   });
 
-  // Restored from bfcache: in-memory settings can be stale vs storage.
+  // Restored from bfcache in-memory settings can be stale vs storage.
   window.addEventListener("pageshow", (ev) => {
     if (!ev.persisted) return;
     lastStorageSig = null;
+    invalidateRootsCache();
     loadSettings();
     scheduleScan();
     startDomWatch();

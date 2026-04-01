@@ -2,7 +2,7 @@
 
 <br/>
 
-### ✦ ·˖° **linkedin feed cleaner** °˖· ✦
+### ✦ ·˖° **feed cleaner for linkedin** °˖· ✦
 
 <sub>☆ manifest v3 · vanilla js · zero runtime bundler ☆</sub>
 
@@ -29,20 +29,23 @@
 
 ## ▸ what it does
 
-Browser extension (**Chromium MV3** + **Firefox** / Zen) that **hides** feed cards on `linkedin.com` when post text matches a keyword list (built-in + custom).  
-State → `storage.local`. Popup → `tabs.sendMessage` to LinkedIn tabs so **Gecko** stays aligned with **Chromium**.
+Browser extension (**Chromium MV3** + **Firefox** / Zen) — **Feed cleaner for LinkedIn** — that **covers** matching feed cards on `linkedin.com` with a **blur overlay** (not `display: none`). The overlay shows *“This post contains blocked content”* and a **See post** button; clicking it removes the blur for that card (remembered for the session via a stable post fingerprint).
+
+- **Matching:** built-in AI/ML-related keyword list + **extra keywords** (one phrase per line in the popup). Case-insensitive; Unicode “fancy” Latin is folded before checks (see below).
+- **Author whitelist:** optional list of names or profile slugs (`/in/…`). If a post matches blocked keywords but the **author** matches a whitelist line, the card **stays visible**.
+- **State:** `storage.local` (`filterEnabled`, `customKeywords`, `authorWhitelist`, scan stats). After save, the popup uses **`tabs.sendMessage`** so open LinkedIn tabs pick up settings (**Chromium** + **Gecko**).
 
 <div align="center">
 
 <br/>
 
-<img src="assets/app.png" width="340" alt="LinkedIn Feed Cleaner — extension popup" />
+<img src="assets/app.png" width="340" alt="Feed cleaner for LinkedIn — extension popup" />
 
 <sub>popup</sub>
 
 <br/>
 
-<img src="assets/screenshot.png" width="680" alt="LinkedIn Feed Cleaner — feed screenshot" />
+<img src="assets/screenshot.png" width="680" alt="Feed cleaner for LinkedIn — feed with blur shields" />
 
 <sub>feed</sub>
 
@@ -68,7 +71,7 @@ These do **not** match inside longer words (e.g. not `email`, `inicia`):
 
 ### Substring phrases (`PHRASES`)
 
-If the post text contains any of these (after normalization), the card is hidden:
+If the post text contains any of these (after normalization), the card gets the **blur shield** until you click **see post** (or you turn the filter off):
 
 ```
 artificial intelligence
@@ -124,8 +127,6 @@ hugging face
 mistral ai
 cohere
 perplexity ai
-whatsapp
-whatsapp business
 ```
 
 Canonical list lives in **`content.js`** (`PHRASES` + `SHORT_PATTERNS`).
@@ -190,17 +191,17 @@ npm run lint:firefox
 
 ## ▸ permissions (honest list)
 
-- `storage` — toggle + keywords  
-- `tabs` — notify LinkedIn tabs after save  
+- `storage` — filter toggle, custom keywords, author whitelist, last-scan stats  
+- `tabs` — notify LinkedIn tabs after popup save  
 - host `https://www.linkedin.com/*` · `https://linkedin.com/*` — inject content script  
 
 ---
 
 ## ▸ versions & releases
 
-- **SemVer** — `package.json`, `manifest.json`, and `manifest-firefox-v2.json` share the same `version` (e.g. `1.1.0`). Check with `npm run verify:version`.
-- **[CHANGELOG.md](CHANGELOG.md)** — human-readable history.
-- **[RELEASING.md](RELEASING.md)** — bump, tag (`v1.0.1`), GitHub Release, stores.
+- **Current release:** `1.3.0` — see **[CHANGELOG.md](CHANGELOG.md)** (author whitelist, blur/stacking fixes vs LinkedIn overlays, popup copy/layout, store-facing name **Feed cleaner for LinkedIn**).
+- **SemVer** — `package.json`, `manifest.json`, and `manifest-firefox-v2.json` must share the same `version`. Check with `npm run verify:version`.
+- **[RELEASING.md](RELEASING.md)** — bump, tag (`v1.3.0`), GitHub Release, stores.
 - Pushing a tag **`v*.*.*`** runs **GitHub Actions**: lint, build, attach `web-ext-artifacts/*.zip` to the release.
 
 ---

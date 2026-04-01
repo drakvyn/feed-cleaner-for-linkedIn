@@ -1,15 +1,15 @@
 {
   "manifest_version": 2,
-  "name": "LinkedIn: hide AI posts",
-  "version": "1.1.0",
-  "description": "Hide AI/LLM posts in your LinkedIn feed—built-in keywords, custom lines, toggle in the popup. Chrome & Firefox. Local storage only.",
+  "name": "Feed cleaner for LinkedIn",
+  "version": "1.3.0",
+  "description": "Blur AI-related posts in your LinkedIn feed. Built-in + custom keywords, author whitelist, toggle. Chrome & Firefox. Local storage only.",
   "icons": {
     "128": "icon.png"
   },
   "browser_action": {
     "default_popup": "popup.html",
     "default_icon": "icon.png",
-    "default_title": "LinkedIn — hide AI posts"
+    "default_title": "Feed cleaner for LinkedIn"
   },
   "permissions": [
     "storage",

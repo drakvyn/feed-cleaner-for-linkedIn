@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>LinkedIn Feed Cleaner</title>
+    <title>Feed cleaner for LinkedIn</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -12,6 +12,7 @@
         <p class="subtitle">Hide AI-related posts on LinkedIn</p>
       </header>
       <p id="popup-error" class="error" role="alert" hidden></p>
+      <p id="feed-stats" class="feed-stats" aria-live="polite"></p>
       <div class="row-toggle">
         <label for="enabled" class="label-text">
           Filter enabled
@@ -22,18 +23,32 @@
           <label for="enabled" class="track"><span class="thumb"></span></label>
         </div>
       </div>
-      <div class="section">
-        <label class="field-label" for="keywords">Extra keywords</label>
+      <div class="section section-field">
+        <label class="field-label" for="keywords">
+          <span class="field-badge" aria-hidden="true">1</span>
+          <span class="field-label-text">Extra keywords</span>
+        </label>
         <textarea
           id="keywords"
           placeholder="One phrase per line&#10;e.g. copilot&#10;AutoGPT"
           spellcheck="false"
           autocomplete="off"
         ></textarea>
+        <p class="hint">Merged with the built-in list. Reload the tab if the feed looks stale.</p>
+      </div>
+      <div class="section section-field">
+        <label class="field-label" for="author-whitelist">
+          <span class="field-badge" aria-hidden="true">2</span>
+          <span class="field-label-text">Author whitelist</span>
+        </label>
+        <textarea
+          id="author-whitelist"
+          placeholder="One name or profile slug per line&#10;e.g. Jane Doe&#10;maria-garcia-123"
+          spellcheck="false"
+          autocomplete="off"
+        ></textarea>
         <p class="hint">
-          Combined with the built-in list (ChatGPT, LLM, “artificial
-          intelligence”, etc.). Scroll the feed or reload the page if a tab
-          looks stale.
+          Matching authors stay visible (name or <code>/in/</code> slug).
         </p>
       </div>
     </div>

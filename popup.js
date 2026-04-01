@@ -1,7 +1,9 @@
 (function () {
   const enabledEl = document.getElementById("enabled");
   const keywordsEl = document.getElementById("keywords");
+  const authorWhitelistEl = document.getElementById("author-whitelist");
   const errEl = document.getElementById("popup-error");
+  const statsEl = document.getElementById("feed-stats");
 
   const ext =
     typeof globalThis.browser !== "undefined" && globalThis.browser.storage?.local
@@ -16,7 +18,7 @@
     }
   }
 
-  if (!enabledEl || !keywordsEl) {
+  if (!enabledEl || !keywordsEl || !authorWhitelistEl) {
     showError("Popup UI failed to load.");
     return;
   }
@@ -43,14 +45,27 @@
     });
   }
 
+  function renderStats(raw) {
+    if (!statsEl) return;
+    if (!raw || typeof raw.hidden !== "number" || typeof raw.roots !== "number") {
+      statsEl.textContent = "Open the feed — stats appear after a scan.";
+      return;
+    }
+    statsEl.textContent = `Last scan: ${raw.hidden} shielded · ${raw.roots} posts detected in feed`;
+  }
+
   async function load() {
     try {
       const items = await storageLocalGet({
         filterEnabled: true,
         customKeywords: "",
+        authorWhitelist: "",
+        lnHideAiStats: null,
       });
       enabledEl.checked = items.filterEnabled !== false;
       keywordsEl.value = items.customKeywords || "";
+      authorWhitelistEl.value = items.authorWhitelist || "";
+      renderStats(items.lnHideAiStats);
     } catch (e) {
       showError(e.message || "Could not load settings.");
     }
@@ -97,6 +112,7 @@
       type: "ln-hide-ai-reload",
       filterEnabled: state.filterEnabled,
       customKeywords: state.customKeywords,
+      authorWhitelist: state.authorWhitelist,
     };
     let allTabs;
     try {
@@ -124,10 +140,12 @@
       const state = {
         filterEnabled: enabledEl.checked,
         customKeywords: keywordsEl.value.trim(),
+        authorWhitelist: authorWhitelistEl.value.trim(),
       };
       await storageLocalSet({
         filterEnabled: state.filterEnabled,
         customKeywords: state.customKeywords,
+        authorWhitelist: state.authorWhitelist,
       });
       await notifyLinkedInTabs(state);
     } catch (e) {
@@ -135,17 +153,21 @@
     }
   }
 
+  function bindDebouncedTextarea(el) {
+    el.addEventListener("input", () => {
+      clearTimeout(el._t);
+      el._t = setTimeout(save, 400);
+    });
+    el.addEventListener("blur", () => {
+      clearTimeout(el._t);
+      el._t = null;
+      save();
+    });
+  }
+
   enabledEl.addEventListener("change", save);
-  keywordsEl.addEventListener("input", () => {
-    clearTimeout(keywordsEl._t);
-    keywordsEl._t = setTimeout(save, 400);
-  });
-  // Flush pending debounce if the popup closes before 400ms (keywords would never save).
-  keywordsEl.addEventListener("blur", () => {
-    clearTimeout(keywordsEl._t);
-    keywordsEl._t = null;
-    save();
-  });
+  bindDebouncedTextarea(keywordsEl);
+  bindDebouncedTextarea(authorWhitelistEl);
 
   load();
 })();
