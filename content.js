@@ -481,9 +481,10 @@
     return subtreeContainsOpenMessageOverlay(root) || subtreeContainsComposerOverlay(root);
   }
 
-  function isLinkedInMessagingPath() {
+  function isLinkedInNonFeedPath() {
     try {
-      return /^\/messaging(\/|$)/.test(location.pathname || "");
+      const path = location.pathname || "";
+      return /^\/(messaging|notifications)(\/|$)/.test(path);
     } catch (_) {
       return false;
     }
@@ -509,7 +510,7 @@
 
   /** LinkedIn virtual feed: one slot per direct child of the scroll column. */
   function addFeedColumnChunkRoots(set) {
-    if (isLinkedInMessagingPath()) return;
+    if (isLinkedInNonFeedPath()) return;
     const seen = new Set();
     const considerContainer = (container) => {
       if (!container || seen.has(container)) return;
@@ -614,7 +615,7 @@
 
   function getPostRoots() {
     const set = new Set();
-    if (isLinkedInMessagingPath()) {
+    if (isLinkedInNonFeedPath()) {
       return new Set();
     }
     const scope = getFeedScope();
@@ -904,6 +905,11 @@
   }
 
   function applyVisibility() {
+    if (isLinkedInNonFeedPath()) {
+      showAllPosts();
+      reportScanStats(0, 0);
+      return;
+    }
     stripShieldsInsideMessagingUi();
     stripLegacyHighlightMarks();
     const roots = getCachedRoots();

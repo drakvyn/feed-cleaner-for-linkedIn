@@ -1,6 +1,6 @@
 {
-  "name": "linkedin-hide-ai-extension",
-  "version": "1.3.0",
+  "name": "zen-feed-ai-extension",
+  "version": "1.3.1",
   "private": true,
   "description": "Feed cleaner for LinkedIn — blur AI-related feed posts; custom keywords + author whitelist (MV3 + Firefox).",
   "scripts": {
@@ -8,7 +8,7 @@
     "lint:firefox": "web-ext lint --source-dir .",
     "build:firefox": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest",
     "pack:chrome": "node scripts/pack-chrome.cjs",
-    "pack:temp": "web-ext build --source-dir . --artifacts-dir . --filename linkedin-hide-ai-dev.xpi --overwrite-dest --ignore-files \"node_modules/**\" \"web-ext-artifacts/**\" \"package-lock.json\""
+    "pack:temp": "web-ext build --source-dir . --artifacts-dir . --filename zen-feed-ai-dev.xpi --overwrite-dest --ignore-files \"node_modules/**\" \"web-ext-artifacts/**\" \"package-lock.json\""
   },
   "devDependencies": {
     "web-ext": "^8.3.0"

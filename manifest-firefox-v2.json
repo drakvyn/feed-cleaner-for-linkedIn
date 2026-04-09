@@ -1,15 +1,15 @@
 {
   "manifest_version": 2,
-  "name": "Feed cleaner for LinkedIn",
-  "version": "1.3.0",
-  "description": "Blur AI-related posts in your LinkedIn feed. Built-in + custom keywords, author whitelist, toggle. Chrome & Firefox. Local storage only.",
+  "name": "ZenFeed AI",
+  "version": "1.3.1",
+  "description": "Blur AI-related LinkedIn posts with built-in/custom keywords and author whitelist. Toggle on/off. Local storage only.",
   "icons": {
     "128": "icon.png"
   },
   "browser_action": {
     "default_popup": "popup.html",
     "default_icon": "icon.png",
-    "default_title": "Feed cleaner for LinkedIn"
+    "default_title": "ZenFeed AI"
   },
   "permissions": [
     "storage",

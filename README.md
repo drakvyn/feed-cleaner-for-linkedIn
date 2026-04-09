@@ -2,9 +2,9 @@
 
 <br/>
 
-### ✦ ·˖° **feed cleaner for linkedin** °˖· ✦
+### ✦ ·˖° **zenfeed ai · hide ai posts on linkedin · browser extension** °˖· ✦
 
-<sub>☆ manifest v3 · vanilla js · zero runtime bundler ☆</sub>
+<sub>☆ hide ai-generated and ai-related posts on linkedin · chromium mv3 · firefox · no tracking ☆</sub>
 
 <br/>
 
@@ -29,23 +29,26 @@
 
 ## ▸ what it does
 
-Browser extension (**Chromium MV3** + **Firefox** / Zen) — **Feed cleaner for LinkedIn** — that **covers** matching feed cards on `linkedin.com` with a **blur overlay**. The overlay shows *“This post contains blocked content”* and a **See post** button; clicking it removes the blur for that card (remembered for the session via a stable post fingerprint).
+ZenFeed AI is a browser extension for LinkedIn that hides AI-related posts, AI-generated content and machine learning noise from your feed using a blur overlay with manual reveal.
+
+keywords: linkedin filter; hide ai posts; ai content blocker; linkedin cleaner; machine learning filter; remove ai spam; feed customization
 
 - **Matching:** built-in AI/ML-related keyword list + **extra keywords** (one phrase per line in the popup). Case-insensitive; Unicode “fancy” Latin is folded before checks (see below).
-- **Author whitelist:** optional list of names or profile slugs (`/in/…`). If a post matches blocked keywords but the **author** matches a whitelist line, the card **stays visible**.
+- **Author whitelist:** optional list of names or profile slugs (`/in/…`). If a post matches blocked keywords but the **author** matches a whitelist line, the card **stays visible**. Useful for keeping signal from trusted authors while filtering generic AI content.
 - **State:** `storage.local` (`filterEnabled`, `customKeywords`, `authorWhitelist`, scan stats). After save, the popup uses **`tabs.sendMessage`** so open LinkedIn tabs pick up settings (**Chromium** + **Gecko**).
+Designed to reduce AI spam, low-signal content and repetitive machine learning posts in LinkedIn feeds.
 
 <div align="center">
 
 <br/>
 
-<img src="assets/app.png" width="340" alt="Feed cleaner for LinkedIn — extension popup" />
+<img src="assets/app.png" width="340" alt="ZenFeed AI - extension popup" />
 
 <sub>popup</sub>
 
 <br/>
 
-<img src="assets/screenshot.gif" width="680" alt="Feed cleaner for LinkedIn — feed with blur shields" />
+<img src="assets/screenshot.gif" width="680" alt="ZenFeed AI hiding AI posts on LinkedIn feed with blur overlay" />
 
 <sub>feed</sub>
 
@@ -59,6 +62,15 @@ Browser extension (**Chromium MV3** + **Firefox** / Zen) — **Feed cleaner for 
 
 Matching is case-insensitive; Unicode “fancy” Latin (e.g. mathematical italics) is folded to ASCII before checks.  
 Custom lines from the popup are **substring** matches (one phrase per line), except a line that is exactly `ai` or `ia`, which uses **whole-word** matching like the built-ins below.
+This list targets common AI, LLM and generative AI terms frequently found in low-signal LinkedIn posts.
+
+---
+
+## ▸ why
+
+LinkedIn feeds are increasingly saturated with repetitive AI content, generative AI posts and low-value machine learning discussions.
+
+ZenFeed AI helps reduce noise and improve signal by giving users control over what appears in their feed.
 
 ### Whole words only
 
@@ -165,7 +177,7 @@ LICENSE · CONTRIBUTING.md
 
 <div align="center">
 
-<img src="assets/y2k-terminal.gif" width="420" alt="drakvyn/feed-fleaner-for-linkedIn — decorative terminal aesthetic" />
+<img src="assets/y2k-terminal.gif" width="420" alt="drakvyn/feed-fleaner-for-linkedIn - decorative terminal aesthetic" />
 
 </div>
 
@@ -187,25 +199,27 @@ npm run lint:firefox
 
 ## ▸ permissions (honest list)
 
-- `storage` — filter toggle, custom keywords, author whitelist, last-scan stats  
-- `tabs` — notify LinkedIn tabs after popup save  
-- host `https://www.linkedin.com/*` · `https://linkedin.com/*` — inject content script  
+ZenFeed AI does not collect, store or transmit personal data.
+
+- `storage` - filter toggle, custom keywords, author whitelist, last-scan stats  
+- `tabs` - notify LinkedIn tabs after popup save  
+- host `https://www.linkedin.com/*` · `https://linkedin.com/*` - inject content script
 
 ---
 
 ## ▸ versions & releases
 
-- **Current release:** `1.3.0` — see **[CHANGELOG.md](CHANGELOG.md)** (author whitelist, blur/stacking fixes vs LinkedIn overlays, popup copy/layout, store-facing name **Feed cleaner for LinkedIn**).
-- **SemVer** — `package.json`, `manifest.json`, and `manifest-firefox-v2.json` must share the same `version`. Check with `npm run verify:version`.
-- **[RELEASING.md](RELEASING.md)** — bump, tag (`v1.3.0`), GitHub Release, stores.
+- **Current release:** `1.3.1` - see **[CHANGELOG.md](CHANGELOG.md)** (notifications path fix; author whitelist; blur/stacking vs LinkedIn overlays; store-facing name **ZenFeed AI**).
+- **SemVer** - `package.json`, `manifest.json`, and `manifest-firefox-v2.json` must share the same `version`. Check with `npm run verify:version`.
+- **[RELEASING.md](RELEASING.md)** - bump, tag (`v1.3.1`), GitHub Release, stores.
 - Pushing a tag **`v*.*.*`** runs **GitHub Actions**: lint, build, attach `web-ext-artifacts/*.zip` to the release.
 
 ---
 
 ## ▸ collab
 
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — PR + issue rules  
-- **[LICENSE](LICENSE)** — MIT  
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - PR + issue rules  
+- **[LICENSE](LICENSE)** - MIT  
 
 ---
 
@@ -217,7 +231,13 @@ npm run lint:firefox
 
 <br/>
 
-**[jeanroa.dev](https://jeanroa.dev)** · **[support the project](https://buymeacoffee.com/jeanroa)** · **[github](https://github.com/drakvyn/feed-fleaner-for-linkedIn)**
+**[jeanroa.dev](https://jeanroa.dev)** · **[support the project](https://buymeacoffee.com/jeanroa)** · **[github](https://github.com/drakvyn/zen-feed-ai)**
+
+---
+
+## ▸ tags
+
+linkedin; ai filter; browser extension; productivity; feed cleaner; ai blocker; open source
 
 <br/>
 

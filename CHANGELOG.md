@@ -4,6 +4,12 @@ All notable changes follow [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-04-09
+
+### Fixed
+
+- Do not apply feed blur shields on `/notifications/` (and keep `/messaging/` excluded). Clears any existing shields when navigating to these paths.
+
 ## [1.3.0] — 2026-03-31
 
 ### Added
@@ -46,7 +52,8 @@ All notable changes follow [Semantic Versioning](https://semver.org/spec/v2.0.0.
 - `manifest-firefox-v2.json` for environments that need MV2.
 - Docs: README, CONTRIBUTING, MIT license.
 
-[Unreleased]: https://github.com/drakvyn/feed-fleaner-for-linkedIn/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/drakvyn/feed-fleaner-for-linkedIn/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/drakvyn/feed-fleaner-for-linkedIn/releases/tag/v1.3.1
 [1.3.0]: https://github.com/drakvyn/feed-fleaner-for-linkedIn/releases/tag/v1.3.0
 [1.1.0]: https://github.com/drakvyn/feed-fleaner-for-linkedIn/releases/tag/v1.1.0
 [1.0.0]: https://github.com/drakvyn/feed-fleaner-for-linkedIn/releases/tag/v1.0.0
