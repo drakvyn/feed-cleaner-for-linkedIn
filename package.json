@@ -7,6 +7,7 @@
     "verify:version": "node scripts/verify-version.cjs",
     "lint:firefox": "web-ext lint --source-dir .",
     "build:firefox": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest",
+    "pack:firefox-store": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --filename zen-feed-ai-$npm_package_version.xpi --overwrite-dest --ignore-files \"node_modules/**\" \"web-ext-artifacts/**\" \"package-lock.json\" \"assets/**\" \"scripts/**\" \"*.md\" \"LICENSE\" \"manifest-firefox-v2.json\" \"package.json\" \"background.js\"",
     "pack:chrome": "node scripts/pack-chrome.cjs",
     "pack:temp": "web-ext build --source-dir . --artifacts-dir . --filename zen-feed-ai-dev.xpi --overwrite-dest --ignore-files \"node_modules/**\" \"web-ext-artifacts/**\" \"package-lock.json\""
   },
