@@ -4,7 +4,7 @@
 
 ### ✦ ·˖° **zenfeed ai · hide ai posts on linkedin · browser extension** °˖· ✦
 
-<sub>☆ hide ai-generated and ai-related posts on linkedin · chromium mv3 · firefox · no tracking ☆</sub>
+<sub>☆ hide ai-related posts on linkedin · chromium mv3 · firefox · no tracking ☆</sub>
 
 <br/>
 
